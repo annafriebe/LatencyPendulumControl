@@ -63,9 +63,12 @@ const t_uint32 LED_CH[3] = {11000, 11001, 11002};
 
 static inline void set_led(t_card board, double r, double g, double b)
 {
-    if (r < 0) r = 0; if (r > 1) r = 1;
-    if (g < 0) g = 0; if (g > 1) g = 1;
-    if (b < 0) b = 0; if (b > 1) b = 1;
+    if (r < 0) r = 0; 
+    if (r > 1) r = 1;
+    if (g < 0) g = 0; 
+    if (g > 1) g = 1;
+    if (b < 0) b = 0; 
+    if (b > 1) b = 1;
     const t_double rgb[3] = {r, g, b};
     hil_write_other(board, LED_CH, 3, rgb);
 }
