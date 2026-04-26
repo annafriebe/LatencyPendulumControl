@@ -1,0 +1,10 @@
+LQR + KF — 0 ms Delay
+=====================
+              Run Alpha RMS (deg) Theta RMS wrapped (deg)      Mean |V|     Sat % Duration (s)     Result
+                1            0.42                    3.82         0.258       0.0         59.5       PASS
+                2            0.98                    5.08         0.259       0.0         59.4       PASS
+                3            0.49                    5.52         0.255       0.0         59.0       PASS
+                4            1.76                    5.49         0.250       0.0         59.0       PASS
+                5            0.90                    5.18         0.245       0.0         59.5       PASS
+Mean ± Std (pass)     0.91 ± 0.53             5.02 ± 0.70 0.253 ± 0.006 0.0 ± 0.0         59.3 PASS (5/5)
+     Failure time               —                       —             —         —            — FAIL (0/5)
