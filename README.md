@@ -2,7 +2,7 @@
 
 Companion repository for the master's thesis  
 **"Comparing the Effects of Latency and Jitter in Distributed Furuta Pendulum Control"**  
-Mahmoud Ayoub — Mälardalen University, 2026.
+Mahmoud Ayoub. Mälardalen University, 2026.
 
 The repository contains the C++ implementation of the distributed control system used in the thesis, the Python scripts used to design controllers and analyse the data, and the full set of CSV logs collected during the experiments.
 
