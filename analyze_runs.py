@@ -499,7 +499,7 @@ def plot_metrics_summary(strategy, out_dir, delays, jitter_ms_val, runs_df, fnam
                  STRATEGY_COLORS[strategy], nan_label="No pass",
                  points_per_bar=alpha_points)
     bar_with_nan(axes[0, 1], ttf_meds, ttf_stds,
-                 "Time to failure (failed runs)", "Median time to fail (s)",
+                 "Time to failure (failed runs)", "Time to failure (s)",
                  "#8e44ad", nan_label="No fail",
                  points_per_bar=ttf_points)
     bar_with_nan(axes[1, 0], volt_means, volt_stds,
@@ -678,7 +678,7 @@ def plot_ttf_only(strategy, out_dir, delays, jitter_ms_val, runs_df, fname_suffi
                     f"{v:.2f}", ha="center", va="bottom", fontsize=9)
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    ax.set_ylabel("Median time to failure (s)")
+    ax.set_ylabel("Time to failure (s)")
     ax.set_ylim(bottom=0)
     ax.grid(True, axis="y", alpha=0.3)
     jitter_str = "No jitter" if jitter_ms_val == 0 else f"\u00b1{jitter_ms_val} ms jitter"
