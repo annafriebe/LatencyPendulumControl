@@ -45,7 +45,9 @@ C = np.array([
 # All real, strictly inside the unit circle.
 # Chosen faster than closed-loop plant poles for convergence.
 # ============================================================
-desired_poles = [0.75, 0.70, 0.65, 0.60]
+#desired_poles = [0.5, 0.45, 0.4, 0.35]
+desired_poles = [0.35, 0.30, 0.25, 0.20]
+ 
 
 # ============================================================
 # Pole placement (dual system: place poles of Ad' - C'*L')
