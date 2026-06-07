@@ -62,7 +62,7 @@ static const double K[4] = {-6.489113, -3.387435, 93.254482, 11.128319};
 // aggressive transients; then the balance scale takes over.
 static const double LQR_scale_swingup  = 0.2;
 static const double LQR_SCALE_SWITCH_S = 1.0;
-static const double LQR_scale_balance  = 0.11;
+static const double LQR_scale_balance  = 0.10;
 
 // ── Swing-up parameters ───────────────────────────────────────────────────────
 static const double KICK_DURATION           = 0.2;
@@ -131,12 +131,12 @@ static const double Bd[4] = {
 // ── Smith Predictor observer gain matrix ─────────────────────────────────────
 // L is a 4x2 matrix mapping position errors [theta_err, alpha_err] to
 // state corrections. Computed offline by observer_design.py using pole
-// placement with desired observer poles at {0.75, 0.70, 0.65, 0.60}.
+// placement with desired observer poles at {0.35, 0.30, 0.25, 0.20}.
 static const double SP_L[4][2] = {
-    { 0.63497831,  0.04879646},
-    {19.13434494,  3.18368196},
-    { 0.04521185,  0.65217191},
-    { 2.56718512, 21.07001744}
+    {  1.43798428,  0.05018652},
+    {101.89022381,  7.32788590},
+    {  0.04389466,  1.44916594},
+    {  5.72400673,104.69835079}
 };
 
 // ── Globals ───────────────────────────────────────────────────────────────────
@@ -312,8 +312,8 @@ public:
 // Without delay: runs as a standard current-time observer.
 // With delay active:
 //   Stage 1 - update observer at t-d using delayed measurement
-//   Stage 2 - roll state forward from t-d to t using stored
-//             voltages and intermediate delayed measurements
+//   Stage 2 - pure open-loop rollout from t-d to t using only
+//             the stored voltage history (matches thesis Eq. 14)
 class SmithPredictor {
     int delay_steps_;
     double x_obs_[4];
@@ -364,26 +364,24 @@ public:
             return;
         }
 
-        // Stage 1: observer update at t-d
+        // Stage 1: observer update at t-d (uses delayed+jittered measurement from caller)
         double xp[4];
         ol_step(x_obs_, vh.get_past(delay_steps_+1), xp);
-        SensorSample yd = db.read_at_depth(delay_steps_);
-        correct(xp, yd.theta, yd.alpha);
+        correct(xp, th_m, al_m);
         for (int i=0; i<4; i++) x_obs_[i] = xp[i];
 
-        // Stage 2: roll forward from t-d to t
+        // Stage 2: roll forward from t-d to t (pure open-loop rollout)
         double xs[4];
         for (int i=0; i<4; i++) xs[i] = x_obs_[i];
         for (int k=1; k<=delay_steps_; k++) {
             double xn[4];
             ol_step(xs, vh.get_past(delay_steps_-k+1), xn);
-            SensorSample yk = db.read_at_depth(delay_steps_-k);
-            correct(xn, yk.theta, yk.alpha);
             for (int j=0; j<4; j++) xs[j] = xn[j];
         }
 
         for (int i=0; i<4; i++) x[i] = xs[i];
-        th_out=xs[0]; al_out=xs[2];
+        th_out=xs[0];
+        al_out=xs[2];
     }
 };
 
