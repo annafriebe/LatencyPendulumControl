@@ -22,14 +22,12 @@ STRATEGY_FROM_FOLDER = {
     "baseline":         "baseline",
     "kalman filter":    "kf",
     "smith predictor":  "sp",
-    "second_sp":        "sp2",
 }
 
 OUTPUT_DIRS = {
     "baseline": os.path.join(RESULTS_ROOT, "Baseline"),
     "kf":       os.path.join(RESULTS_ROOT, "Kalman Filter"),
     "sp":       os.path.join(RESULTS_ROOT, "Smith Predictor"),
-    "sp2":      os.path.join(RESULTS_ROOT, "Second_SP"),
 }
 
 COMPARISON_DIR      = os.path.join(RESULTS_ROOT, "Comparison")
@@ -39,14 +37,12 @@ STRATEGY_LABELS = {
     "baseline": "Baseline LQR",
     "kf":       "LQR + KF",
     "sp":       "LQR + SP",
-    "sp2":      "LQR + SP (Extended)",
 }
 
 STRATEGY_COLORS = {
     "baseline": "#e74c3c",
     "kf":       "#2980b9",
     "sp":       "#27ae60",
-    "sp2":      "#1f8f55",
 }
 
 RUN_COLORS        = ["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd"]
@@ -58,9 +54,10 @@ SATURATION_V      = 9.8
 CONSTANT_DELAYS   = [5, 10, 15, 20]
 JITTER_DELAYS     = [5, 10, 15, 20]
 JITTER_VALUE      = 5
-SP2_CONSTANT_DELAYS = [100, 300, 900]
-SP2_JITTER_DELAYS   = [100, 300, 900]
-SP2_JITTER_VALUE    = 100
+
+# A run is treated as failed if the measurement window is shorter than this,
+# even when no BALANCE_TO_PUMP event was recorded (e.g. aborted/cut runs).
+MIN_PASS_DURATION_S = 10.0
 
 for d in list(OUTPUT_DIRS.values()) + [COMPARISON_DIR, ANALYSIS_OUTPUT_DIR]:
     os.makedirs(d, exist_ok=True)
@@ -96,15 +93,12 @@ def discover_files(root):
         run       = int(m.group(4))
 
         # Identify strategy from the top-level folder under root.
-        # Fall back to filename prefix (and "second_sp" path substring) if the
-        # top-level folder name is not recognised.
+        # Fall back to the filename prefix if the top-level folder is unknown.
         rel_parts = os.path.relpath(fpath, root).split(os.sep)
         top_folder = rel_parts[0].lower() if rel_parts else ""
         strategy = STRATEGY_FROM_FOLDER.get(top_folder)
         if strategy is None:
-            strategy_raw = m.group(1).lower()
-            in_sp2 = "second_sp" in fpath.lower()
-            strategy = "sp2" if (strategy_raw == "sp" and in_sp2) else strategy_raw
+            strategy = m.group(1).lower()
 
         records.append({"path": fpath, "strategy": strategy,
                         "delay_ms": delay_ms, "jitter_ms": jitter_ms, "run": run})
@@ -166,7 +160,7 @@ def compute_metrics(df, delay_ms):
     if bal.empty:
         return None
     active, window_rule = select_metric_window(df, delay_ms)
-    failed    = (df["event"] == "BALANCE_TO_PUMP").any()
+    event_failed = (df["event"] == "BALANCE_TO_PUMP").any()
     t_fail    = first_failure_time(df)
     t_balance = first_balance_start(df)
 
@@ -177,19 +171,27 @@ def compute_metrics(df, delay_ms):
     sat_fraction = float((active["voltage_cmd_V"].abs() >= SATURATION_V).mean())
     duration     = float(active["t_s"].iloc[-1] - active["t_s"].iloc[0]) if len(active) > 1 else 0.0
 
+    # A run is also counted as failed if its measurement window is too short
+    # (e.g. the experiment was aborted before BALANCE_TO_PUMP could fire).
+    short_run_failed = duration < MIN_PASS_DURATION_S
+    failed = bool(event_failed or short_run_failed)
+
     time_to_fail_s = None
-    if failed and t_fail is not None:
+    if event_failed and t_fail is not None:
         if delay_ms > 0 and t_balance is not None:
             time_to_fail_s = max(0.0, t_fail - (t_balance + DELAY_INJECT_S))
         elif t_balance is not None:
             time_to_fail_s = max(0.0, t_fail - t_balance)
         else:
             time_to_fail_s = t_fail
+    elif short_run_failed and not event_failed:
+        # Short-run aborts: report the recorded duration as the failure time.
+        time_to_fail_s = duration
 
     eff_depth = float(active["effective_depth"].mean()) if "effective_depth" in active.columns else np.nan
 
     return {
-        "failed":              bool(failed),
+        "failed":              failed,
         "time_to_fail_s":      time_to_fail_s,
         "alpha_rms_deg":       float(np.degrees(alpha_rms)),
         "theta_rms_deg_wrapped": float(np.degrees(theta_rms)),
@@ -838,28 +840,6 @@ def main():
                                  fname_suffix="constant_latency")
             plot_metrics_summary(strategy, out_dir, JITTER_DELAYS, JITTER_VALUE, runs_df,
                                  fname_suffix="jitter")
-
-    # Extended SP figures
-    out_dir2 = OUTPUT_DIRS["sp2"]
-    print("\nGenerating figures for LQR + SP (Extended)...")
-    plot_zero_delay_signal("sp2", out_dir2, file_df, signal="alpha")
-    plot_zero_delay_signal("sp2", out_dir2, file_df, signal="theta")
-    plot_angle_grid("sp2", out_dir2, SP2_CONSTANT_DELAYS, 0, file_df, runs_df,
-                    signal="alpha", title_suffix="Large constant latency 100–900 ms",
-                    fname_suffix="constant_latency_large")
-    plot_angle_grid("sp2", out_dir2, SP2_CONSTANT_DELAYS, 0, file_df, runs_df,
-                    signal="theta", title_suffix="Large constant latency 100–900 ms",
-                    fname_suffix="constant_latency_large")
-    plot_angle_grid("sp2", out_dir2, SP2_JITTER_DELAYS, SP2_JITTER_VALUE, file_df, runs_df,
-                    signal="alpha", title_suffix=f"Large jitter ±{SP2_JITTER_VALUE} ms",
-                    fname_suffix="jitter_large")
-    plot_angle_grid("sp2", out_dir2, SP2_JITTER_DELAYS, SP2_JITTER_VALUE, file_df, runs_df,
-                    signal="theta", title_suffix=f"Large jitter ±{SP2_JITTER_VALUE} ms",
-                    fname_suffix="jitter_large")
-    plot_metrics_summary("sp2", out_dir2, SP2_CONSTANT_DELAYS, 0, runs_df,
-                         fname_suffix="constant_latency_large")
-    plot_metrics_summary("sp2", out_dir2, SP2_JITTER_DELAYS, SP2_JITTER_VALUE, runs_df,
-                         fname_suffix="jitter_large")
 
     # Cross-strategy comparison figures
     print("\nGenerating cross-strategy comparison figures...")
